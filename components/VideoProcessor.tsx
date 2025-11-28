@@ -20,15 +20,13 @@ export const VideoProcessor: React.FC<VideoProcessorProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // Basic validation
     if (!file.type.startsWith('video/')) {
-        onError("Please upload a valid video file.");
+        onError("Invalid file type. Please upload a video.");
         return;
     }
 
     const url = URL.createObjectURL(file);
     setVideoSrc(url);
-    // Reset process handled by loadedmetadata
   };
 
   const processVideo = useCallback(async () => {
@@ -40,22 +38,20 @@ export const VideoProcessor: React.FC<VideoProcessorProps> = ({
 
     const duration = video.duration;
     if (!duration || duration === Infinity) {
-        onError("Could not determine video duration.");
+        onError("Unable to determine video duration.");
         return;
     }
 
-    // We will extract 8 frames evenly distributed
     const frameCount = 8;
     const interval = duration / (frameCount + 1);
     const frames: ExtractedFrame[] = [];
     const ctx = canvas.getContext('2d');
 
     if (!ctx) {
-        onError("Could not initialize canvas context.");
+        onError("Browser canvas not supported.");
         return;
     }
 
-    // Set canvas dimensions to match video (capped for performance)
     const maxDim = 512; 
     let scale = 1;
     if (video.videoWidth > maxDim || video.videoHeight > maxDim) {
@@ -67,11 +63,8 @@ export const VideoProcessor: React.FC<VideoProcessorProps> = ({
     try {
         for (let i = 1; i <= frameCount; i++) {
             const time = interval * i;
-            
-            // Seek
             video.currentTime = time;
             
-            // Wait for seek to complete
             await new Promise<void>((resolve) => {
                 const onSeeked = () => {
                     video.removeEventListener('seeked', onSeeked);
@@ -80,65 +73,61 @@ export const VideoProcessor: React.FC<VideoProcessorProps> = ({
                 video.addEventListener('seeked', onSeeked);
             });
 
-            // Draw
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            
-            // Extract
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7); // 0.7 quality to save tokens
             frames.push({
                 id: i,
                 timestamp: time,
-                dataUrl
+                dataUrl: canvas.toDataURL('image/jpeg', 0.7)
             });
         }
-        
         onFramesExtracted(frames);
-
     } catch (err) {
         console.error(err);
-        onError("Error processing video frames.");
+        onError("Failed to process video frames.");
     }
   }, [onFramesExtracted, onProcessingStart, onError]);
 
-  // Trigger processing once metadata is loaded and we know duration
   const onLoadedMetadata = () => {
-      // Just ready to process, user will click process or auto-start? 
-      // Let's auto-start for smoother UX if file is selected
-      if(videoSrc) {
-        processVideo();
-      }
+      if(videoSrc) processVideo();
   };
 
   return (
-    <div className="w-full">
-      {/* Hidden processing elements */}
+    <div className="w-full group">
       <video 
         ref={videoRef} 
         src={videoSrc || undefined} 
         onLoadedMetadata={onLoadedMetadata}
         className="hidden" 
-        muted 
-        playsInline 
-        crossOrigin="anonymous"
+        muted playsInline crossOrigin="anonymous"
       />
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Upload UI */}
-      <div className="flex flex-col items-center justify-center w-full">
-        <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-48 border-2 border-dashed rounded-xl cursor-pointer hover:bg-zinc-800/50 bg-zinc-900 border-zinc-700 hover:border-blue-500 transition-all group">
-            <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                <svg className="w-10 h-10 mb-4 text-zinc-400 group-hover:text-blue-500 transition-colors" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
-                </svg>
-                <p className="mb-2 text-sm text-zinc-400"><span className="font-semibold text-zinc-200">Click to upload video</span> or drag and drop</p>
-                <p className="text-xs text-zinc-500">MP4, MOV, WebM (Max 50MB recommended)</p>
+      <div className="relative w-full">
+        {/* Decorative background glow */}
+        <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl opacity-20 group-hover:opacity-40 blur transition duration-500"></div>
+        
+        <label className="relative flex flex-col items-center justify-center w-full h-64 border border-zinc-800 bg-zinc-900/90 rounded-xl cursor-pointer hover:bg-zinc-800 transition-all duration-300 overflow-hidden backdrop-blur-sm">
+            <div className="absolute inset-0 bg-grid-white/[0.02] bg-[length:20px_20px]"></div>
+            
+            <div className="flex flex-col items-center justify-center pt-5 pb-6 z-10">
+                <div className="w-16 h-16 mb-4 rounded-full bg-zinc-800 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 border border-zinc-700 group-hover:border-blue-500/50">
+                   <svg className="w-8 h-8 text-zinc-400 group-hover:text-blue-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                   </svg>
+                </div>
+                <p className="mb-2 text-lg text-zinc-300 font-medium">Drop your video here</p>
+                <p className="text-sm text-zinc-500">or click to browse files</p>
+                <div className="mt-4 px-3 py-1 bg-zinc-800 rounded-md text-xs text-zinc-400 border border-zinc-700">
+                    MP4, MOV, WebM
+                </div>
             </div>
-            <input id="dropzone-file" type="file" className="hidden" accept="video/*" onChange={handleFileChange} />
+            <input type="file" className="hidden" accept="video/*" onChange={handleFileChange} />
         </label>
-        <p className="mt-4 text-xs text-center text-zinc-500 max-w-lg">
-          Note: To analyze videos from YouTube or TikTok, please download them first. Browser security prevents direct URL frame extraction.
-        </p>
       </div>
+      
+      <p className="mt-6 text-sm text-center text-zinc-500">
+        To analyze YouTube/TikTok, please download the video first.
+      </p>
     </div>
   );
 };
