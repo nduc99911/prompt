@@ -4,6 +4,7 @@ export interface ExtractedFrame {
   timestamp: number;
 }
 
+
 export interface Scene {
   id: number;
   description: string;
