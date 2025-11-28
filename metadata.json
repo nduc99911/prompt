@@ -1,0 +1,5 @@
+{
+  "name": "VeoScripter",
+  "description": "Extracts scripts and generates Veo video prompts from uploaded videos using Gemini Vision.",
+  "requestFramePermissions": []
+}
